@@ -1,16 +1,12 @@
 #!/usr/bin/env python2
 # -*- coding: utf-8 -*-
+"""Prints art in the style of each line one breath"""
 
-from numpy import cos, sin, pi, arctan2, sqrt,\
-                  square, linspace, zeros, array,\
-                  concatenate, delete
-
-from numpy.random import random, normal, randint, shuffle
+from scipy.spatial import cKDTree
+from numpy.random import random, shuffle, normal
+from numpy import zeros, sin, cos, pi
 import numpy as np
 import cairo
-from time import time as time
-from operator import itemgetter
-from scipy.spatial import cKDTree
 # import gtk, gobject
 
 np.random.seed(1)
@@ -41,216 +37,195 @@ H = W/NUM_LINES
 
 FILENAME = 'tt_brownianbridge'
 
-TURTLE_ANGLE_NOISE = pi*0.1
+TURTLE_ANGLE_NOISE = np.pi*0.1
 INIT_TURTLE_ANGLE_NOISE = 0
 
+
 def myrandom(size):
+    """Returns array of size size of random numbers"""
+    # res = normal(size=size)
 
-  #res = normal(size=size)
+    # res = 1.-2.*random(size=size)
 
-  #res = 1.-2.*random(size=size)
-
-  ## almost but not entirely unlike a brownian bridge
-  rnd = 1.-2.*random(size=size/2)
-  res = concatenate((rnd,-rnd))
-  shuffle(res)
-  return res
-
-def myrandom1():
-
-  #res = normal(size=size)
-  res = 1.-2.*random(size=1)
-
-  return res
+    # almost but not entirely unlike a brownian bridge
+    rnd = 1.-2.*random(size=size/2)
+    res = np.concatenate((rnd, -rnd))
+    shuffle(res)
+    return res
 
 
-def turtle(sthe,sx,sy,steps):
+def turtle(starting_angle, starting_x, starting_y, steps):
+    """Returns turtle shape"""
+    xy_line = zeros((steps, 2), 'float')
+    angles = zeros(steps, 'float')
 
-  XY = zeros((steps,2),'float')
-  THE = zeros(steps,'float')
+    xy_line[0, 0] = starting_x
+    xy_line[0, 1] = starting_y
+    angles[0] = starting_angle
+    angle = starting_angle
 
-  XY[0,0] = sx
-  XY[0,1] = sy
-  THE[0] = sthe
-  the = sthe
+    noise = myrandom(size=steps)*INIT_TURTLE_ANGLE_NOISE
+    for k in xrange(1, steps):
+        x_new = xy_line[k-1, 0] + cos(angle)*ONE
+        y_new = xy_line[k-1, 1] + sin(angle)*ONE
+        xy_line[k, 0] = x_new
+        xy_line[k, 1] = y_new
+        angles[k] = angle
+        angle += noise[k]
 
-  noise = myrandom(size=steps)*INIT_TURTLE_ANGLE_NOISE
-  for k in xrange(1,steps):
+        if x_new > X_MAX or x_new < X_MIN or y_new > Y_MAX or y_new < Y_MIN:
+            xy_line = xy_line[:k, :]
+            angles = angles[:k]
+            break
 
-    x = XY[k-1,0] + cos(the)*ONE
-    y = XY[k-1,1] + sin(the)*ONE
-    XY[k,0] = x
-    XY[k,1] = y
-    THE[k] = the
-    the += noise[k]
+    return angles, xy_line
 
-    if x>X_MAX or x<X_MIN or y>Y_MAX or y<Y_MIN:
-      XY = XY[:k,:]
-      THE = THE[:k]
-      break
 
-  return THE, XY
+def get_near_indices(tree, xy_points, upper_bound, number_of_points):
+    """Returns lists containing nearest points and distances to those points"""
+    dist, data_inds = tree.query(xy_points, k=number_of_points,
+                                 distance_upper_bound=upper_bound, eps=ONE)
 
-#def get_near_indices(tree,xy,d,k):
+    dist = dist.flatten()
+    data_inds = data_inds.flatten()
 
-  #dist,data_inds = tree.query(xy,k=k,distance_upper_bound=d,eps=ONE)
+    sort_inds = np.argsort(data_inds)
 
-  #return dist, data_inds.flatten()
+    dist = dist[sort_inds]
+    data_inds = data_inds[sort_inds]
 
-def get_near_indices(tree,xy,d,k):
+    return dist, data_inds.flatten()
 
-  dist,data_inds = tree.query(xy,k=k,distance_upper_bound=d,eps=ONE)
 
-  dist = dist.flatten()
-  data_inds = data_inds.flatten()
+def alignment(angle, dist):
+    """Controls how the distance from nearest line works"""
+    distance_x = cos(angle)
+    distance_y = sin(angle)
 
-  sort_inds = np.argsort(data_inds)
+    # inverse proporional distance scale
+    # distance_x = np.sum(distance_x/dist)
+    # distance_y = np.sum(distance_y/dist)
 
-  dist = dist[sort_inds]
-  data_inds = data_inds[sort_inds]
+    # linear distance scale
+    distance_x = np.sum(distance_x*(1.-dist))
+    distance_y = np.sum(distance_y*(1.-dist))
 
-  return dist, data_inds.flatten()
+    total_distance = (distance_x*distance_x+distance_y*distance_y)**0.5
 
-def alignment(the,dist):
-
-  dx = cos(the)
-  dy = sin(the)
-
-  ### inverse proporional distance scale
-  #dx = np.sum(dx/dist)
-  #dy = np.sum(dy/dist)
-
-  ## linear distance scale
-  dx = np.sum(dx*(1.-dist))
-  dy = np.sum(dy*(1.-dist))
-
-  dd = (dx*dx+dy*dy)**0.5
-
-  return dx/dd,dy/dd
+    return distance_x/total_distance, distance_y/total_distance
 
 
 class Render(object):
+    """Renders lines"""
+    def __init__(self, n):
+        self.size = n
+        self.__init_cairo()
 
-  def __init__(self,n):
+    def __init_cairo(self):
 
-    self.n = n
-    self.__init_cairo()
+        sur = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.size, self.size)
+        ctx = cairo.Context(sur)
+        ctx.scale(self.size, self.size)
+        ctx.set_source_rgb(BACK, BACK, BACK)
+        ctx.rectangle(0, 0, 1, 1)
+        ctx.fill()
 
-  def __init_cairo(self):
+        self.sur = sur
+        self.ctx = ctx
 
-    sur = cairo.ImageSurface(cairo.FORMAT_ARGB32,self.n,self.n)
-    ctx = cairo.Context(sur)
-    ctx.scale(self.n,self.n)
-    ctx.set_source_rgb(BACK,BACK,BACK)
-    ctx.rectangle(0,0,1,1)
-    ctx.fill()
+    def line(self, xy_points):
+        """Add a line joining the points in xy_points"""
+        self.ctx.set_source_rgba(0, 0, 0, 0.6)
+        self.ctx.set_line_width(ONE*3.)
 
-    self.sur = sur
-    self.ctx = ctx
-
-  def line(self,xy):
-
-    self.ctx.set_source_rgba(0,0,0,0.6)
-    self.ctx.set_line_width(ONE*3.)
-
-    self.ctx.move_to(xy[0,0],xy[0,1])
-    for (x,y) in xy[1:]:
-      self.ctx.line_to(x,y)
-    self.ctx.stroke()
+        self.ctx.move_to(xy_points[0, 0], xy_points[0, 1])
+        for (x_pt, y_pt) in xy_points[1:]:
+            self.ctx.line_to(x_pt, y_pt)
+        self.ctx.stroke()
 
 
 def main():
+    """Main function"""
+    render = Render(SIZE)
 
-  render = Render(SIZE)
+    angle = pi*0.5
 
-  num = 0
+    angle, xy_line = turtle(angle, START_X, START_Y, NUMMAX)
 
-  the = pi*0.5
+    render.line(xy_line)
 
-  the,xy = turtle(the,START_X,START_Y,NUMMAX)
+    xy_old = xy_line
+    angles_old = angle
 
-  render.line(xy)
+    tree = cKDTree(xy_old)
 
-  XYS = xy
-  THES = the
+    for line_num in range(1, NUM_LINES):
+        print(line_num, NUM_LINES)
 
-  num = len(XYS)
-  TS = cKDTree(XYS)
+        xy_new = zeros((NUMMAX, 2), 'float')
+        angle_new = zeros(NUMMAX, 'float')
 
-  for line_num in range(1,NUM_LINES):
-    print line_num, NUM_LINES
+        # x = X_MIN + random()*(X_MAX-X_MIN)
+        # y = Y_MIN + random()*(Y_MAX-Y_MIN)
 
-    xy_res = zeros((NUMMAX,2),'float')
-    the_res = zeros(NUMMAX,'float')
-    
-    #x = X_MIN + random()*(X_MAX-X_MIN)
-    #y = Y_MIN + random()*(Y_MAX-Y_MIN)
+        xy_last_point = np.array([[START_X+line_num*H, START_Y]])
+        angle_last_point = 0.5*pi
 
-    x = START_X+line_num*H
-    y = START_Y
+        xy_new[0, :] = xy_last_point
+        angle_new[0] = angle_last_point
 
-    xy_last = array([[x,y]])
-    the_last = 0.5*pi
+        noise = myrandom(size=NUMMAX)*TURTLE_ANGLE_NOISE
 
-    xy_res[0,:] = xy_last
-    the_res[0] = the_last
+        for i in xrange(1, NUMMAX):
+            dist, inds = get_near_indices(tree, xy_last_point,
+                                          DIST_NEAR_INDICES, NUM_NEAR_INDICES)
 
-    noise = myrandom(size=NUMMAX)*TURTLE_ANGLE_NOISE
+            # dist[dist<ONE] = ONE
+            dist = dist[SHIFT_INDICES:]
+            inds = inds[SHIFT_INDICES:]
 
-    for i in xrange(1,NUMMAX):
+            distance_x, distance_y = alignment(angles_old[inds], dist)
 
-      dist,inds = get_near_indices(TS,xy_last,\
-                                   DIST_NEAR_INDICES,\
-                                   NUM_NEAR_INDICES)
+            angle = np.arctan2(distance_y, distance_x)
+            angle += noise[i]
 
-      #dist[dist<ONE] = ONE
-      dist = dist[SHIFT_INDICES:]
-      inds = inds[SHIFT_INDICES:]
+            xy_next_point = xy_last_point \
+                + np.array([[cos(angle), sin(angle)]])*ONE
+            xy_new[i, :] = xy_next_point
+            angle_new[i] = angle
 
-      dx,dy = alignment(THES[inds],dist)
+            xy_last_point = xy_next_point
 
-      the = np.arctan2(dy,dx)
-      the += noise[i]
+            if xy_last_point[0, 0] > X_MAX or xy_last_point[0, 0] < X_MIN or\
+               xy_last_point[0, 1] > Y_MAX or xy_last_point[0, 1] < Y_MIN:
+                xy_new = xy_new[:i, :]
+                angle_new = angle_new[:i]
+                break
 
-      xy_new = xy_last + array( [[cos(the),sin(the)]] )*ONE
-      xy_res[i,:] = xy_new
-      the_res[i] = the
+        render.line(xy_new)
 
-      xy_last = xy_new
+        # replace all old nodes
+        xy_old = xy_new
+        angles_old = angle_new
 
-      if xy_last[0,0]>X_MAX or xy_last[0,0]<X_MIN or\
-         xy_last[0,1]>Y_MAX or xy_last[0,1]<Y_MIN:
-        xy_res = xy_res[:i,:]
-        the_res = the_res[:i]
-        break
+        tree = cKDTree(xy_old)
 
-    render.line(xy_res)
+        if not line_num % 100:
 
-    ## replace all old nodes
-    XYS = xy_res
-    THES = the_res
+            render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME, line_num))
 
-    num = len(THES)
-
-    TS = cKDTree(XYS)
-
-    if not line_num%100:
-
-      render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME,line_num))
-
-  render.sur.write_to_png('{:s}_final.png'.format(FILENAME))
-
+    render.sur.write_to_png('{:s}_final.png'.format(FILENAME))
 
 
 if __name__ == '__main__':
-  if False:
-    import pstats
-    import cProfile
-    OUT = 'profile'
-    pfilename = '{:s}.profile'.format(OUT)
-    cProfile.run('main()',pfilename)
-    p = pstats.Stats(pfilename)
-    p.strip_dirs().sort_stats('cumulative').print_stats()
-  else:
-    main()
-
+    PROFILING_ENABLED = False
+    if PROFILING_ENABLED:
+        import pstats
+        import cProfile
+        OUT = 'profile'
+        PROFILE_FILENAME = '{:s}.profile'.format(OUT)
+        cProfile.run('main()', PROFILE_FILENAME)
+        pstats.Stats(PROFILE_FILENAME).strip_dirs().sort_stats('cumulative')\
+            .print_stats()
+    else:
+        main()
