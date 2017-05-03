@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python2
 # -*- coding: utf-8 -*-
 
 from numpy import cos, sin, pi, arctan2, sqrt,\
@@ -11,11 +11,11 @@ import cairo
 from time import time as time
 from operator import itemgetter
 from scipy.spatial import cKDTree
-import gtk, gobject
+# import gtk, gobject
 
 np.random.seed(1)
 
-SIZE = 20000
+SIZE = 2000
 ONE = 1./SIZE
 
 BACK = 1.
