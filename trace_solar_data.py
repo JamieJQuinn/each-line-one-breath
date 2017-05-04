@@ -33,6 +33,7 @@ FILENAME = 'solar_lines'
 FILES = 'data_filenames'
 
 MAX_ANGLE_NOISE = 1.0/180*pi
+INVERSE_DISTANCE_ENABLED = False
 
 
 def get_near_indices(tree, xy_points, upper_bound, number_of_points):
@@ -56,13 +57,14 @@ def alignment(angle, dist):
     distance_x = cos(angle)
     distance_y = sin(angle)
 
-    # inverse proporional distance scale
-    # distance_x = np.sum(distance_x/dist)
-    # distance_y = np.sum(distance_y/dist)
-
-    # linear distance scale
-    distance_x = np.sum(distance_x*(1.-dist))
-    distance_y = np.sum(distance_y*(1.-dist))
+    if INVERSE_DISTANCE_ENABLED:
+        # inverse proporional distance scale
+        distance_x = np.sum(distance_x/dist)
+        distance_y = np.sum(distance_y/dist)
+    else:
+        # linear distance scale
+        distance_x = np.sum(distance_x*(1.-dist))
+        distance_y = np.sum(distance_y*(1.-dist))
 
     total_distance = (distance_x*distance_x+distance_y*distance_y)**0.5
 
