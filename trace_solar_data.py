@@ -3,27 +3,25 @@
 """Prints art in the style of each line one breath"""
 
 from scipy.spatial import cKDTree
-from numpy.random import random, shuffle, normal
 from numpy import zeros, sin, cos, pi
-import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import cairo
 # import gtk, gobject
 
-SIZE = 2000
-ONE = 1./SIZE
+ONE = 0
 
 BACK = 1.
 
-X_MIN = 0+10*ONE
-Y_MIN = 0+10*ONE
-X_MAX = 1-10*ONE
-Y_MAX = 1-10*ONE
+# X_MIN = 0+10*ONE
+# Y_MIN = 0+10*ONE
+# X_MAX = 1-10*ONE
+# Y_MAX = 1-10*ONE
 
 DIST_NEAR_INDICES = np.inf
-NUM_NEAR_INDICES = 30
+NUM_NEAR_INDICES = 10
 SHIFT_INDICES = 5
+# SHIFT_INDICES = 2
 
 W = 0.9
 PIX_BETWEEN = 11
@@ -31,55 +29,15 @@ PIX_BETWEEN = 11
 START_X = (1.-W)*0.5
 START_Y = (1.-W)*0.5
 
-NUMMAX = int(2*SIZE)
-NUM_LINES = int(SIZE*W/PIX_BETWEEN)
-H = W/NUM_LINES
+X_MIN = 0+START_X/2.0
+Y_MIN = 0+START_Y/2.0
+X_MAX = 1-START_X/2.0
+Y_MAX = 1-START_Y
 
 FILENAME = 'solar_lines'
 FILES = 'data_filenames'
 
-TURTLE_ANGLE_NOISE = np.pi*0.1
-INIT_TURTLE_ANGLE_NOISE = 0
-
-
-def myrandom(size):
-    """Returns array of size size of random numbers"""
-    # res = normal(size=size)
-
-    # res = 1.-2.*random(size=size)
-
-    # almost but not entirely unlike a brownian bridge
-    rnd = 1.-2.*random(size=size/2)
-    res = np.concatenate((rnd, -rnd))
-    shuffle(res)
-    return res
-
-
-def turtle(starting_angle, starting_x, starting_y, steps):
-    """Returns turtle shape"""
-    xy_line = zeros((steps, 2), 'float')
-    angles = zeros(steps, 'float')
-
-    xy_line[0, 0] = starting_x
-    xy_line[0, 1] = starting_y
-    angles[0] = starting_angle
-    angle = starting_angle
-
-    noise = myrandom(size=steps)*INIT_TURTLE_ANGLE_NOISE
-    for k in xrange(1, steps):
-        x_new = xy_line[k-1, 0] + cos(angle)*ONE
-        y_new = xy_line[k-1, 1] + sin(angle)*ONE
-        xy_line[k, 0] = x_new
-        xy_line[k, 1] = y_new
-        angles[k] = angle
-        angle += noise[k]
-
-        if x_new > X_MAX or x_new < X_MIN or y_new > Y_MAX or y_new < Y_MIN:
-            xy_line = xy_line[:k, :]
-            angles = angles[:k]
-            break
-
-    return angles, xy_line
+MAX_ANGLE_NOISE = 1.0/180*pi
 
 
 def get_near_indices(tree, xy_points, upper_bound, number_of_points):
@@ -145,77 +103,83 @@ class Render(object):
         self.ctx.stroke()
 
 
-def generate_line(start_x, start_y, start_angle, tree, noise, angles_old):
-    xy_points = zeros((NUMMAX, 2), 'float')
-    angles = zeros(NUMMAX, 'float')
+def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise):
+    """Generates a line following the old line and introducing noise"""
+
+    if xy_old != []:
+        tree = cKDTree(xy_old)
+    max_points = len(noise)
+    xy_new = zeros((max_points, 2), 'float')
+    angles = zeros(max_points, 'float')
 
     xy_point = np.array([[start_x, start_y]])
 
-    xy_points[0, :] = xy_point
+    xy_new[0, :] = xy_point
     angles[0] = 0.5*pi
+    angle = 0.5*pi
 
-    for i in xrange(1, NUMMAX):
-        dist, inds = get_near_indices(tree, xy_point,
-                                      DIST_NEAR_INDICES, NUM_NEAR_INDICES)
+    for i in xrange(1, max_points):
+        angle = 0.5*pi
+        if xy_old != []:
+            dist, inds = get_near_indices(tree, xy_point,
+                                          DIST_NEAR_INDICES, NUM_NEAR_INDICES)
 
-        # dist[dist<ONE] = ONE
-        dist = dist[SHIFT_INDICES:]
-        inds = inds[SHIFT_INDICES:]
+            # dist[dist<ONE] = ONE
+            dist = dist[SHIFT_INDICES:]
+            inds = inds[SHIFT_INDICES:]
 
-        distance_x, distance_y = alignment(angles_old[inds], dist)
+            distance_x, distance_y = alignment(angles_old[inds], dist)
 
-        angle = np.arctan2(distance_y, distance_x)
+            angle = np.arctan2(distance_y, distance_x)
         angle += noise[i]
 
         xy_next_point = xy_point \
-            + np.array([[cos(angle), sin(angle)]])*ONE
-        xy_points[i, :] = xy_next_point
+            + np.array([[cos(angle), sin(angle)]])*ONE*3
+        xy_new[i, :] = xy_next_point
         angles[i] = angle
 
         xy_point = xy_next_point
 
         if xy_point[0, 0] > X_MAX or xy_point[0, 0] < X_MIN or\
            xy_point[0, 1] > Y_MAX or xy_point[0, 1] < Y_MIN:
-            xy_points = xy_points[:i, :]
+            xy_new = xy_new[:i, :]
             angles = angles[:i]
             break
 
-    return xy_points, angles
+    return xy_new, angles
 
-
-def main():
-    """Main function"""
-    render = Render(SIZE)
-
+def draw_image():
+    """Draws each line one breath image"""
     with open(FILES, 'r') as data_filenames_fp:
         data_filenames = data_filenames_fp.read().split()
 
-    angle = pi*0.5
+    num_lines = len(data_filenames)
+    line_sep = W/num_lines
+    size = int(num_lines*PIX_BETWEEN/W)
 
-    angle, xy_line = turtle(angle, START_X, START_Y, NUMMAX)
+    render = Render(size)
 
-    render.line(xy_line)
+    global ONE, X_MIN, X_MAX, Y_MIN, Y_MAX
+    ONE = 1./size
+    # X_MIN = 0+10*ONE
+    # Y_MIN = 0+10*ONE
+    # X_MAX = 1-10*ONE
+    # Y_MAX = 1-10*ONE
 
-    xy_old = xy_line
-    angles_old = angle
+    noise = get_noise_from_file(data_filenames[0])
+    line_points, angles = generate_line(START_X, START_Y,
+                                        pi*0.5, [], [], noise)
 
-    tree = cKDTree(xy_old)
+    render.line(line_points)
 
-    for line_num in range(1, NUM_LINES):
-        print(line_num, NUM_LINES)
+    for line_num in range(1, num_lines):
+        print(line_num, num_lines)
 
         noise = get_noise_from_file(data_filenames[line_num-1])
+        line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
+                                            pi*0.5, line_points, angles, noise)
 
-        xy_new, angles_new = generate_line(START_X+line_num*H, START_Y, pi*0.5,
-                                           tree, noise, angles_old)
-
-        render.line(xy_new)
-
-        # replace all old nodes
-        xy_old = xy_new
-        angles_old = angles_new
-
-        tree = cKDTree(xy_old)
+        render.line(line_points)
 
         if line_num % 100 == 0:
             render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME, line_num))
@@ -223,17 +187,26 @@ def main():
     render.sur.write_to_png('{:s}_final.png'.format(FILENAME))
 
 
+def main():
+    """Main"""
+    draw_image()
+
+
 def get_noise_from_file(data_fname, index=8):
     """Loads data file and creates noise from it"""
     solar_data = np.loadtxt(data_fname, comments=['#', ':'])
-    good_indices = solar_data[:, 6] == 0
-    bad_indices = solar_data[:, 6] != 0
+    good_indices = solar_data[:, 8] > -400.0
+    bad_indices = solar_data[:, 8] < -400.0
     noise_data = solar_data[:, index]
-    max_noise_data = max(noise_data[good_indices])
-    min_noise_data = min(noise_data[good_indices])
-    noise = 2*(noise_data - min_noise_data)\
-        / (max_noise_data - min_noise_data) - 1
+    # max_noise_data = max(noise_data[good_indices])
+    # min_noise_data = min(noise_data[good_indices])
+    # noise = 2*(noise_data - min_noise_data)\
+        # / (max_noise_data - min_noise_data) - 1
+    average = np.mean(noise_data[good_indices])
+    noise = (noise_data - average)/max(noise_data - average)
     noise[bad_indices] = 0.0
+
+    noise *= MAX_ANGLE_NOISE
 
     return noise
 
