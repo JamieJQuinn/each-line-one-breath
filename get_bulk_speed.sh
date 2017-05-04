@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 
-if [ "$1" != '' ]
+if [ "$2" != '' ]
+then
+  d=$1
+  until [[ $d > "$2" ]]; do
+    wget "ftp://sohoftp.nascom.nasa.gov/sdb/goes/ace/daily/"$d"_ace_swepam_1m.txt"
+    d=$(date +%Y%m%d -d "$d + 1 day")
+  done
+elif [ "$1" != '' ]
 then
   # Get specific date
-  url="ftp://sohoftp.nascom.nasa.gov/sdb/goes/ace/daily/"$1"_ace_swepam_1m.txt"
+  wget "ftp://sohoftp.nascom.nasa.gov/sdb/goes/ace/daily/"$1"_ace_swepam_1m.txt"
 else
   # Get daily
-  url="ftp://sohoftp.nascom.nasa.gov/sdb/goes/ace/daily/ace_swepam_1m.txt"
+  wget "ftp://sohoftp.nascom.nasa.gov/sdb/goes/ace/daily/ace_swepam_1m.txt"
 fi
-
-wget $url

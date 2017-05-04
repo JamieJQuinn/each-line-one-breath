@@ -42,6 +42,19 @@ TURTLE_ANGLE_NOISE = np.pi*0.1
 INIT_TURTLE_ANGLE_NOISE = 0
 
 
+def myrandom(size):
+    """Returns array of size size of random numbers"""
+    # res = normal(size=size)
+
+    # res = 1.-2.*random(size=size)
+
+    # almost but not entirely unlike a brownian bridge
+    rnd = 1.-2.*random(size=size/2)
+    res = np.concatenate((rnd, -rnd))
+    shuffle(res)
+    return res
+
+
 def turtle(starting_angle, starting_x, starting_y, steps):
     """Returns turtle shape"""
     xy_line = zeros((steps, 2), 'float')
