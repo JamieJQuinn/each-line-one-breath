@@ -237,22 +237,21 @@ def main():
 
     args = parser.parse_args()
 
-    if args.inverse_distance_enabled:
+    INVERSE_DISTANCE_ENABLED = args.inverse_distance_enabled
+    if INVERSE_DISTANCE_ENABLED:
         print "Using inverse distance"
-        INVERSE_DISTANCE_ENABLED = True
     else:
         print "Using linear distance"
-        INVERSE_DISTANCE_ENABLED = False
 
-    if args.num_near_indices:
+    if "num_near_indices" in vars(args):
         NUM_NEAR_INDICES = args.num_near_indices
         print "Setting NUM_NEAR_INDICES to " + str(NUM_NEAR_INDICES)
 
-    if args.shift_indices:
+    if "shift_indices" in vars(args):
         SHIFT_INDICES = args.shift_indices
         print "Setting SHIFT_INDICES to " + str(SHIFT_INDICES)
 
-    if args.max_angle_noise:
+    if "max_angle_noise" in vars(args):
         MAX_ANGLE_NOISE = args.max_angle_noise/180.0*pi
         print "Setting MAX_ANGLE_NOISE to " + str(args.max_angle_noise)
 
