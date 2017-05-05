@@ -195,10 +195,6 @@ def get_noise_from_file(data_fname, index=8):
     good_indices = solar_data[:, 8] > -400.0
     bad_indices = solar_data[:, 8] < -400.0
     noise_data = solar_data[:, index]
-    # max_noise_data = max(noise_data[good_indices])
-    # min_noise_data = min(noise_data[good_indices])
-    # noise = 2*(noise_data - min_noise_data)\
-        # / (max_noise_data - min_noise_data) - 1
     average = np.mean(noise_data[good_indices])
     noise = (noise_data - average)/max(noise_data - average)
     noise[bad_indices] = 0.0
