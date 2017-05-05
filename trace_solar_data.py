@@ -224,16 +224,18 @@ def main():
     global INVERSE_DISTANCE_ENABLED, NUM_NEAR_INDICES,\
         SHIFT_INDICES, MAX_ANGLE_NOISE, FILENAME
 
-    parser.add_argument('--num_near_indices', type=int, default=NUM_NEAR_INDICES,
-                        help='Number of nearest neighbours')
+    parser.add_argument('--num_near_indices', type=int,
+                        default=NUM_NEAR_INDICES, help='Number of nearest\
+                        neighbours')
     parser.add_argument('--inverse_distance_enabled', action='store_true',
                         help='Switch on inverse distance as\
                         opposed to linear')
     parser.add_argument('--shift_indices', type=int, default=SHIFT_INDICES,
                         help='Number of nearest neighbours to\
                         ignore')
-    parser.add_argument('--max_angle_noise', type=float, default=MAX_ANGLE_NOISE,
-                        help='Maximum angle in degrees')
+    parser.add_argument('--max_angle_noise', type=float,
+                        default=MAX_ANGLE_NOISE, help='Maximum angle in\
+                        degrees')
 
     args = parser.parse_args()
 
