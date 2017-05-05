@@ -165,12 +165,15 @@ def draw_image():
     with open(FILES, 'r') as data_filenames_fp:
         data_filenames = data_filenames_fp.read().split()
 
+    average_noise = calculate_average_noise()
+
     num_lines = len(data_filenames)
     line_sep = W/num_lines
     size = int(num_lines*PIX_BETWEEN/W)
 
     test_noise = get_noise_from_file(data_filenames[0],
-                                     index=DATA_COLUMN_INDEX)
+                                     index=DATA_COLUMN_INDEX,
+                                     average=average_noise)
     global START_X, START_Y, X_MAX, Y_MAX, X_MIN, Y_MIN
     ysize = len(test_noise) + (START_X + (1 - X_MAX))*size
 
@@ -184,7 +187,8 @@ def draw_image():
 
     render = Render(size, ysize=int(ysize))
 
-    noise = get_noise_from_file(data_filenames[0], index=DATA_COLUMN_INDEX)
+    noise = get_noise_from_file(data_filenames[0], index=DATA_COLUMN_INDEX,
+                                average=average_noise)
     max_points = len(noise)
     line_points, angles = generate_line(START_X, START_Y,
                                         pi*0.5, [], [], noise, max_points)
@@ -193,7 +197,8 @@ def draw_image():
 
     for line_num in range(1, num_lines):
         noise = get_noise_from_file(data_filenames[line_num],
-                                    index=DATA_COLUMN_INDEX)
+                                    index=DATA_COLUMN_INDEX,
+                                    average=average_noise)
         line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
                                             pi*0.5, line_points, angles, noise,
                                             max_points)
@@ -261,7 +266,21 @@ def main():
     draw_image()
 
 
-def get_noise_from_file(data_fname, index=8):
+def calculate_average_noise():
+    with open(FILES, 'r') as data_filenames_fp:
+        data_filenames = data_filenames_fp.read().split()
+
+    index = DATA_COLUMN_INDEX
+    total_noise_data = np.array([])
+    for data_fname in data_filenames:
+        solar_data = np.loadtxt(data_fname, comments=['#', ':'])
+        total_noise_data = np.concatenate([total_noise_data,
+                                           solar_data[:, index].flatten()])
+
+    return np.median(total_noise_data[total_noise_data > 0])
+
+
+def get_noise_from_file(data_fname, index=8, average=np.inf):
     """Loads data file and creates noise from it"""
     solar_data = np.loadtxt(data_fname, comments=['#', ':'])
     # Sort good data from bad
@@ -270,7 +289,8 @@ def get_noise_from_file(data_fname, index=8):
     noise_data = solar_data[:, index]
     # Calculate average
     # average = np.mean(noise_data[good_indices])
-    average = np.median(noise_data[good_indices])
+    if average == np.inf:
+        average = np.median(noise_data[good_indices])
     # Make average sit at 0 & normalise
     noise = (noise_data - average)/max(np.abs(noise_data[good_indices] -
                                               average))
