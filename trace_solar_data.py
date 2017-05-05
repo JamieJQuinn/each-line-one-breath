@@ -106,12 +106,12 @@ class Render(object):
         self.ctx.stroke()
 
 
-def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise):
+def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise,
+                  max_points):
     """Generates a line following the old line and introducing noise"""
 
     if xy_old != []:
         tree = cKDTree(xy_old)
-    max_points = len(noise)
     xy_new = zeros((max_points, 2), 'float')
     angles = zeros(max_points, 'float')
 
@@ -134,7 +134,8 @@ def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise):
             distance_x, distance_y = alignment(angles_old[inds], dist)
 
             angle = np.arctan2(distance_y, distance_x)
-        angle += noise[i]
+        if i < len(noise):
+            angle += noise[i]
 
         xy_next_point = xy_point \
             + np.array([[cos(angle), sin(angle)]])*STEP_LENGTH
@@ -179,7 +180,7 @@ def draw_image():
     noise = get_noise_from_file(data_filenames[0], index=DATA_COLUMN_INDEX)
     max_points = len(noise)
     line_points, angles = generate_line(START_X, START_Y,
-                                        pi*0.5, [], [], noise)
+                                        pi*0.5, [], [], noise, max_points)
 
     render.line(line_points)
 
@@ -187,7 +188,8 @@ def draw_image():
         noise = get_noise_from_file(data_filenames[line_num],
                                     index=DATA_COLUMN_INDEX)
         line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
-                                            pi*0.5, line_points, angles, noise)
+                                            pi*0.5, line_points, angles, noise,
+                                            max_points)
 
         render.line(line_points)
 
