@@ -37,7 +37,7 @@ STEP_LENGTH = 0.0
 
 OUTPUT_FOLDER = "output"
 FILENAME = 'solar_lines'
-FILES = 'data_filenames'
+FILES = 'input_files'
 DATA_COLUMN_INDEX = 8
 CALC_GLOBAL_AVERAGE = False
 
