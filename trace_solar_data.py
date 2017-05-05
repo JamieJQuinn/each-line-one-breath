@@ -254,11 +254,17 @@ def main():
 def get_noise_from_file(data_fname, index=8):
     """Loads data file and creates noise from it"""
     solar_data = np.loadtxt(data_fname, comments=['#', ':'])
-    good_indices = solar_data[:, 8] > -400.0
-    bad_indices = solar_data[:, 8] < -400.0
+    # Sort good data from bad
+    good_indices = solar_data[:, index] > 0
+    bad_indices = solar_data[:, index] <= 0
     noise_data = solar_data[:, index]
-    average = np.mean(noise_data[good_indices])
-    noise = (noise_data - average)/max(noise_data - average)
+    # Calculate average
+    # average = np.mean(noise_data[good_indices])
+    average = np.median(noise_data[good_indices])
+    # Make average sit at 0 & normalise
+    noise = (noise_data - average)/max(np.abs(noise_data[good_indices] -
+                                              average))
+    # Get rid of bad points
     noise[bad_indices] = 0.0
 
     noise *= MAX_ANGLE_NOISE
