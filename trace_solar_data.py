@@ -16,11 +16,13 @@ ONE = 0
 BACK = 1.
 
 DIST_NEAR_INDICES = np.inf
-NUM_NEAR_INDICES = 10
+NUM_NEAR_INDICES = 30
 SHIFT_INDICES = 5
-# SHIFT_INDICES = 2
 
-W = 0.9
+INVERSE_DISTANCE_ENABLED = False
+MAX_ANGLE_NOISE = 1.0
+
+W = 0.95
 PIX_BETWEEN = 11
 
 START_X = (1.-W)*0.5
@@ -28,14 +30,15 @@ START_Y = (1.-W)*0.5
 
 X_MIN = 0+START_X/2.0
 Y_MIN = 0+START_Y/2.0
-X_MAX = 1-START_X/2.0
+X_MAX = 1-START_X
 Y_MAX = 1-START_Y
 
+STEP_LENGTH = 0.0
+
+OUTPUT_FOLDER = "output"
 FILENAME = 'solar_lines'
 FILES = 'data_filenames'
-
-MAX_ANGLE_NOISE = 1.0/180*pi
-INVERSE_DISTANCE_ENABLED = False
+DATA_COLUMN_INDEX = 8
 
 
 def get_near_indices(tree, xy_points, upper_bound, number_of_points):
