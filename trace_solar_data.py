@@ -2,10 +2,12 @@
 # -*- coding: utf-8 -*-
 """Prints art in the style of each line one breath"""
 
+import argparse
+
 from scipy.spatial import cKDTree
 from numpy import zeros, sin, cos, pi
-import matplotlib.pyplot as plt
 import numpy as np
+# import matplotlib.pyplot as plt
 import cairo
 # import gtk, gobject
 
