@@ -197,7 +197,7 @@ def draw_image():
     line_points, angles = generate_line(START_X, START_Y,
                                         pi*0.5, [], [], noise, max_points)
 
-    render.line(line_points)
+    render.line(line_points, "red")
 
     for line_num in range(1, num_lines):
         noise = get_noise_from_file(data_filenames[line_num],
@@ -246,10 +246,7 @@ def main():
     args = parser.parse_args()
 
     INVERSE_DISTANCE_ENABLED = args.inverse_distance_enabled
-    if INVERSE_DISTANCE_ENABLED:
-        print "Using inverse distance"
-    else:
-        print "Using linear distance"
+    print "INVERSE_DISTANCE_ENABLED:" + str(INVERSE_DISTANCE_ENABLED)
 
     if "num_near_indices" in vars(args):
         NUM_NEAR_INDICES = args.num_near_indices
