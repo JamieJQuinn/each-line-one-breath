@@ -95,9 +95,16 @@ class Render(object):
         self.sur = sur
         self.ctx = ctx
 
-    def line(self, xy_points):
+    def line(self, xy_points, colour=""):
         """Add a line joining the points in xy_points"""
-        self.ctx.set_source_rgba(0, 0, 0, 0.6)
+        red, green, blue = 0, 0, 0
+        if colour == "red":
+            red = 255
+        if colour == "blue":
+            blue = 255
+        if colour == "green":
+            green = 255
+        self.ctx.set_source_rgba(red, green, blue, 0.6)
         self.ctx.set_line_width(ONE*3.)
 
         self.ctx.move_to(xy_points[0, 0], xy_points[0, 1])
@@ -190,8 +197,11 @@ def draw_image():
         line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
                                             pi*0.5, line_points, angles, noise,
                                             max_points)
-
-        render.line(line_points)
+        if line_num % 27 == 0:
+            colour = "red"
+        else:
+            colour = ""
+        render.line(line_points, colour)
 
         if line_num % 100 == 0:
             print(line_num, num_lines)
