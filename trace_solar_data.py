@@ -39,6 +39,7 @@ OUTPUT_FOLDER = "output"
 FILENAME = 'solar_lines'
 FILES = 'data_filenames'
 DATA_COLUMN_INDEX = 8
+CALC_GLOBAL_AVERAGE = False
 
 
 def get_near_indices(tree, xy_points, upper_bound, number_of_points):
@@ -165,7 +166,10 @@ def draw_image():
     with open(FILES, 'r') as data_filenames_fp:
         data_filenames = data_filenames_fp.read().split()
 
-    average_noise = calculate_average_noise()
+    if CALC_GLOBAL_AVERAGE:
+        average_noise = calculate_average_noise()
+    else:
+        average_noise = np.inf
 
     num_lines = len(data_filenames)
     line_sep = W/num_lines
@@ -230,6 +234,8 @@ def main():
     parser.add_argument('--inverse_distance_enabled', action='store_true',
                         help='Switch on inverse distance as\
                         opposed to linear')
+    parser.add_argument('--global_average', action='store_true', help='Calc\
+                        average globally instead of per day')
     parser.add_argument('--shift_indices', type=int, default=SHIFT_INDICES,
                         help='Number of nearest neighbours to\
                         ignore')
@@ -257,9 +263,15 @@ def main():
         MAX_ANGLE_NOISE = args.max_angle_noise/180.0*pi
         print "Setting MAX_ANGLE_NOISE to " + str(args.max_angle_noise)
 
+    global CALC_GLOBAL_AVERAGE
+    CALC_GLOBAL_AVERAGE = args.global_average
+    print "CALC_GLOBAL_AVERAGE:" + str(CALC_GLOBAL_AVERAGE)
+
     global FILENAME
     if INVERSE_DISTANCE_ENABLED:
         FILENAME = "inverse_" + FILENAME
+    if CALC_GLOBAL_AVERAGE:
+        FILENAME = "glob_av_" + FILENAME
 
     FILENAME = "sh"+str(SHIFT_INDICES) + "_nn"+str(NUM_NEAR_INDICES) +\
         "_maxang"+str(args.max_angle_noise) + "_" + FILENAME
