@@ -203,6 +203,51 @@ def draw_image():
 
 def main():
     """Main"""
+    parser = argparse.ArgumentParser(description='Renders solar data as each\
+                                     line one breath')
+
+    global INVERSE_DISTANCE_ENABLED, NUM_NEAR_INDICES,\
+        SHIFT_INDICES, MAX_ANGLE_NOISE, FILENAME
+
+    parser.add_argument('--num_near_indices', type=int, default=NUM_NEAR_INDICES,
+                        help='Number of nearest neighbours')
+    parser.add_argument('--inverse_distance_enabled', action='store_true',
+                        help='Switch on inverse distance as\
+                        opposed to linear')
+    parser.add_argument('--shift_indices', type=int, default=SHIFT_INDICES,
+                        help='Number of nearest neighbours to\
+                        ignore')
+    parser.add_argument('--max_angle_noise', type=float, default=MAX_ANGLE_NOISE,
+                        help='Maximum angle in degrees')
+
+    args = parser.parse_args()
+
+    if args.inverse_distance_enabled:
+        print "Using inverse distance"
+        INVERSE_DISTANCE_ENABLED = True
+    else:
+        print "Using linear distance"
+        INVERSE_DISTANCE_ENABLED = False
+
+    if args.num_near_indices:
+        NUM_NEAR_INDICES = args.num_near_indices
+        print "Setting NUM_NEAR_INDICES to " + str(NUM_NEAR_INDICES)
+
+    if args.shift_indices:
+        SHIFT_INDICES = args.shift_indices
+        print "Setting SHIFT_INDICES to " + str(SHIFT_INDICES)
+
+    if args.max_angle_noise:
+        MAX_ANGLE_NOISE = args.max_angle_noise/180.0*pi
+        print "Setting MAX_ANGLE_NOISE to " + str(args.max_angle_noise)
+
+    global FILENAME
+    if INVERSE_DISTANCE_ENABLED:
+        FILENAME = "inverse_" + FILENAME
+
+    FILENAME = "sh"+str(SHIFT_INDICES) + "_nn"+str(NUM_NEAR_INDICES) +\
+        "_maxang"+str(args.max_angle_noise) + "_" + FILENAME
+
     draw_image()
 
 
