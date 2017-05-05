@@ -194,9 +194,11 @@ def draw_image():
         render.line(line_points)
 
         if line_num % 100 == 0:
-            render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME, line_num))
+            print(line_num, num_lines)
+            # render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME, line_num))
 
-    render.sur.write_to_png('{:s}_final.png'.format(FILENAME))
+    render.sur.write_to_png('{:s}/{:s}_final.png'
+                            .format(OUTPUT_FOLDER, FILENAME))
 
 
 def main():
