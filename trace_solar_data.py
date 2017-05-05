@@ -78,15 +78,16 @@ def alignment(angle, dist):
 
 class Render(object):
     """Renders lines"""
-    def __init__(self, n):
+    def __init__(self, n, ysize):
         self.size = n
+        self.ysize = ysize
         self.__init_cairo()
 
     def __init_cairo(self):
 
-        sur = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.size, self.size)
+        sur = cairo.ImageSurface(cairo.FORMAT_ARGB32, self.size, self.ysize)
         ctx = cairo.Context(sur)
-        ctx.scale(self.size, self.size)
+        ctx.scale(self.size, self.ysize)
         ctx.set_source_rgb(BACK, BACK, BACK)
         ctx.rectangle(0, 0, 1, 1)
         ctx.fill()
@@ -136,7 +137,7 @@ def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise):
         angle += noise[i]
 
         xy_next_point = xy_point \
-            + np.array([[cos(angle), sin(angle)]])*ONE*3
+            + np.array([[cos(angle), sin(angle)]])*STEP_LENGTH
         xy_new[i, :] = xy_next_point
         angles[i] = angle
 
@@ -150,6 +151,7 @@ def generate_line(start_x, start_y, start_angle, xy_old, angles_old, noise):
 
     return xy_new, angles
 
+
 def draw_image():
     """Draws each line one breath image"""
     with open(FILES, 'r') as data_filenames_fp:
@@ -159,25 +161,31 @@ def draw_image():
     line_sep = W/num_lines
     size = int(num_lines*PIX_BETWEEN/W)
 
-    render = Render(size)
+    test_noise = get_noise_from_file(data_filenames[0],
+                                     index=DATA_COLUMN_INDEX)
+    global START_X, START_Y, X_MAX, Y_MAX, X_MIN, Y_MIN
+    ysize = len(test_noise) + (START_X + (1 - X_MAX))*size
 
-    global ONE, X_MIN, X_MAX, Y_MIN, Y_MAX
+    START_Y = START_X*float(size)/float(ysize)
+    Y_MAX = X_MAX*float(size)/float(ysize)
+    Y_MIN = X_MIN*float(size)/float(ysize)
+
+    global ONE, STEP_LENGTH
     ONE = 1./size
-    # X_MIN = 0+10*ONE
-    # Y_MIN = 0+10*ONE
-    # X_MAX = 1-10*ONE
-    # Y_MAX = 1-10*ONE
+    STEP_LENGTH = 1./ysize
 
-    noise = get_noise_from_file(data_filenames[0])
+    render = Render(size, ysize=int(ysize))
+
+    noise = get_noise_from_file(data_filenames[0], index=DATA_COLUMN_INDEX)
+    max_points = len(noise)
     line_points, angles = generate_line(START_X, START_Y,
                                         pi*0.5, [], [], noise)
 
     render.line(line_points)
 
     for line_num in range(1, num_lines):
-        print(line_num, num_lines)
-
-        noise = get_noise_from_file(data_filenames[line_num-1])
+        noise = get_noise_from_file(data_filenames[line_num],
+                                    index=DATA_COLUMN_INDEX)
         line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
                                             pi*0.5, line_points, angles, noise)
 
