@@ -22,15 +22,17 @@ SHIFT_INDICES = 5
 INVERSE_DISTANCE_ENABLED = False
 MAX_ANGLE_NOISE = 1.0
 
-W = 0.95
+W = 0.9
 PIX_BETWEEN = 11
+
+MAX_POINTS = 2000
 
 START_X = (1.-W)*0.5
 START_Y = (1.-W)*0.5
 
 X_MIN = 0+START_X/2.0
 Y_MIN = 0+START_Y/2.0
-X_MAX = 1-START_X
+X_MAX = 1-START_X/2.0
 Y_MAX = 1-START_Y
 
 STEP_LENGTH = 0.0
@@ -38,6 +40,7 @@ STEP_LENGTH = 0.0
 OUTPUT_FOLDER = "output"
 FILENAME = 'solar_lines'
 FILES = 'input_files'
+INPUT_TYPE = ""
 DATA_COLUMN_INDEX = 8
 CALC_GLOBAL_AVERAGE = False
 
@@ -173,17 +176,16 @@ def draw_image():
 
     num_lines = len(data_filenames)
     line_sep = W/num_lines
-    size = int(num_lines*PIX_BETWEEN/W)
+    size = int((num_lines-1)*PIX_BETWEEN/W)
 
-    test_noise = get_noise_from_file(data_filenames[0],
-                                     index=DATA_COLUMN_INDEX,
+    test_noise = get_noise_from_file(data_filenames[0], INPUT_TYPE,
                                      average=average_noise)
     global START_X, START_Y, X_MAX, Y_MAX, X_MIN, Y_MIN
     ysize = len(test_noise) + (START_X + (1 - X_MAX))*size
 
     START_Y = START_X*float(size)/float(ysize)
-    Y_MAX = X_MAX*float(size)/float(ysize)
-    Y_MIN = X_MIN*float(size)/float(ysize)
+    Y_MAX = 1-START_Y
+    Y_MIN = START_Y/2.0
 
     global ONE, STEP_LENGTH
     ONE = 1./size
@@ -191,17 +193,18 @@ def draw_image():
 
     render = Render(size, ysize=int(ysize))
 
-    noise = get_noise_from_file(data_filenames[0], index=DATA_COLUMN_INDEX,
+    noise = get_noise_from_file(data_filenames[0], INPUT_TYPE,
                                 average=average_noise)
     max_points = len(noise)
+    noise = np.zeros_like(noise)
     line_points, angles = generate_line(START_X, START_Y,
                                         pi*0.5, [], [], noise, max_points)
 
     render.line(line_points, "red")
 
     for line_num in range(1, num_lines):
-        noise = get_noise_from_file(data_filenames[line_num],
-                                    index=DATA_COLUMN_INDEX,
+        print(line_num, num_lines)
+        noise = get_noise_from_file(data_filenames[line_num], INPUT_TYPE,
                                     average=average_noise)
         line_points, angles = generate_line(START_X+line_num*line_sep, START_Y,
                                             pi*0.5, line_points, angles, noise,
@@ -212,8 +215,7 @@ def draw_image():
             colour = ""
         render.line(line_points, colour)
 
-        if line_num % 100 == 0:
-            print(line_num, num_lines)
+        # if line_num % 100 == 0:
             # render.sur.write_to_png('{:s}_{:d}.png'.format(FILENAME, line_num))
 
     render.sur.write_to_png('{:s}/{:s}_final.png'
@@ -242,6 +244,10 @@ def main():
     parser.add_argument('--max_angle_noise', type=float,
                         default=MAX_ANGLE_NOISE, help='Maximum angle in\
                         degrees')
+    parser.add_argument('--index', type=int, required=True, help='Index of column of data to\
+                        trace')
+    parser.add_argument('--input_type', help='Type of input', required=True,
+                        choices=["ace", "goes"])
 
     args = parser.parse_args()
 
@@ -259,6 +265,12 @@ def main():
     if "max_angle_noise" in vars(args):
         MAX_ANGLE_NOISE = args.max_angle_noise/180.0*pi
         print "Setting MAX_ANGLE_NOISE to " + str(args.max_angle_noise)
+
+    global INPUT_TYPE
+    INPUT_TYPE = args.input_type
+
+    global DATA_COLUMN_INDEX
+    DATA_COLUMN_INDEX = args.index
 
     global CALC_GLOBAL_AVERAGE
     CALC_GLOBAL_AVERAGE = args.global_average
@@ -290,26 +302,37 @@ def calculate_average_noise():
     return np.median(total_noise_data[total_noise_data > 0])
 
 
-def get_noise_from_file(data_fname, index=8, average=np.inf):
-    """Loads data file and creates noise from it"""
-    solar_data = np.loadtxt(data_fname, comments=['#', ':'])
-    # Sort good data from bad
-    good_indices = solar_data[:, index] > 0
-    bad_indices = solar_data[:, index] <= 0
-    noise_data = solar_data[:, index]
+def parse_data_from_file(fname, index, data_type):
+    if data_type == "goes":
+        data = np.genfromtxt(fname, skip_header=140, delimiter=',')
+    elif data_type == "ace":
+        data = np.genfromtxt(fname, comments=['#', ':'])
+    return data[:, index]
+
+
+def get_noise_from_file(data_fname, data_type, average=np.inf):
+    noise_data = parse_data_from_file(data_fname, DATA_COLUMN_INDEX, data_type)
+    noise_data = noise_data[:MAX_POINTS]
+
+    good_data = noise_data[noise_data >= 0]
+
     # Calculate average
     # average = np.mean(noise_data[good_indices])
-    if average == np.inf:
-        average = np.median(noise_data[good_indices])
+    if not CALC_GLOBAL_AVERAGE:
+        average = np.median(good_data)
+
     # Make average sit at 0 & normalise
-    noise = (noise_data - average)/max(np.abs(noise_data[good_indices] -
-                                              average))
+    noise = np.zeros_like(noise_data)
+    if (good_data != 0.0).any():
+        noise = (noise_data - average)/max(np.fabs(good_data -
+                                                   average))
     # Get rid of bad points
-    noise[bad_indices] = 0.0
+    noise[noise_data < 0] = 0.0
 
     noise *= MAX_ANGLE_NOISE
 
     return noise
+
 
 if __name__ == '__main__':
     PROFILING_ENABLED = False
