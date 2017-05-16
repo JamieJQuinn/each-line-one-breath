@@ -5,57 +5,58 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def get_noise_from_file(data_fname, index):
-    """Loads data file and creates noise from it"""
-    noise_data = parse_data_from_file(fname, index)
-    good_data = noise_data[noise_data > 0]
-    # average = np.mean(noise_data[good_indices])
+def calculate_noise(noise_data, max_angle_noise):
+    """Returns normalised and centred noise data"""
+    good_data = noise_data[noise_data >= 0]
     average = np.median(good_data)
-    max_noise = max(np.fabs(good_data - average))
-    noise = (noise_data - average)/max_noise
+    noise = np.zeros_like(noise_data)
+    if (good_data != 0.0).any():
+        noise = (noise_data - average)/max(np.fabs(good_data - average))
     noise[noise_data < 0] = 0.0
-    # percentile = np.percentile(noise, 90)
-    # noise = noise/percentile
+    noise *= max_angle_noise
 
     return noise
 
 
-def parse_data_from_file(fname, index):
-    data = np.genfromtxt(fname, skip_header=140, delimiter=',')
-    return data[:, index]
+def get_noise_from_file(config):
+    """Loads noise from given file"""
+    noise_data = np.genfromtxt(config["noise_file"])
+    noise_data = noise_data[:-(len(noise_data) % config["points_per_line"])]
+
+    if config["use_global_average"]:
+        noise = calculate_noise(noise_data, config["max_angle_noise"])
+    else:
+        noise = np.concatenate([calculate_noise(array, config["max_angle_noise"])
+                                for array in
+                                np.split(noise_data, config["points_per_line"])])
+
+    return noise
 
 
 parser = argparse.ArgumentParser(description='Plots solar data')
 parser.add_argument('--raw', action='store_true',
                     help='Plot raw data')
-parser.add_argument('fnames', nargs='+',
-                    help='Data files to plot')
-parser.add_argument('--index', type=int, required=True, help='Index of column of data to\
-                    trace')
-parser.add_argument('--input_type', help='Type of input', required=True,
-                    choices=["ace", "goes"])
-
+parser.add_argument('--use_global_average', action='store_true',
+                    help='Calc average over all noise instead of per line')
+parser.add_argument('noise_file')
+parser.add_argument('--points_per_line', required=True, type=int)
+parser.add_argument('--max_angle_noise', type=float, default=1.0,
+                    help='Maximum angle in degrees')
 args = parser.parse_args()
 
-if args.input_type == "ace":
-    if args.raw:
-        solar_data = np.concatenate([parse_data_from_file(fname, args.index) for fname in args.fnames])
-        good_data = solar_data[np.logical_and(solar_data > 0, solar_data < 800)]
+config = {}
+config["points_per_line"] = args.points_per_line
+config["noise_file"] = args.noise_file
+config["use_global_average"] = args.use_global_average
+config["max_angle_noise"] = args.max_angle_noise
 
-        plt.plot(good_data)
-    else:
-        total_noise = np.concatenate([get_noise_from_file(fname, args.index) for fname in
-                                      args.fnames])
-        plt.plot(total_noise)
-elif args.input_type == "goes":
-    if args.raw:
-        solar_data = np.concatenate([parse_data_from_file(fname, args.index) for fname in args.fnames])
-        good_data = solar_data[solar_data < 1e-7]
+if args.raw:
+    noise_data = np.genfromtxt(config["noise_file"])
 
-        plt.plot(good_data)
-    else:
-        total_noise = np.concatenate([get_noise_from_file(fname, args.index) for fname in
-                                      args.fnames])
-        plt.plot(total_noise)
+    plt.plot(noise_data)
+else:
+    noise = get_noise_from_file(config)
+
+    plt.plot(noise)
 
 plt.show()
