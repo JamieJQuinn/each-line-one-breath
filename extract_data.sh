@@ -17,5 +17,7 @@ if [ ! "$index"  ] || [ ! "$data_type" ]; then
 fi
 
 if [ "$data_type" == "goes" ]; then
-  sed '1,140d' "${@:$OPTIND}" | awk -F ',' '{print $'"$index"'}' | grep -P '\d\.\d{4}'
+  awk -F ',' '{print $'"$index"'}' "${@:$OPTIND}" | grep '\d\.\d{4}'
+elif [ "$data_type" == "swepam" ]; then
+  awk '/^[^#:]/ {print $'"$index"'}' "${@:$OPTIND}"
 fi
